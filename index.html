@@ -1320,7 +1320,7 @@ const PATHOLOGIES = [
         label: "Tratamiento — Deshidratación leve",
         accent: "green",
         items: [
-          {type:"text", text:"<b>Rehidratación oral (RHO)</b> — vía de elección. Fase de rehidratación (2–4 horas): <b>30–50 mL/kg</b>. Solución de rehidratación oral (SRO) según ESPGHAN: Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L."},
+          {type:"doseRange", label:"Rehidratación oral (RHO) — vía de elección: volumen de SRO en 2–4 horas", minDoseKg:30, maxDoseKg:50, unit:"ml", max:null, note:"Solución de rehidratación oral según ESPGHAN: Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L. Regla práctica: 1% de pérdida de peso ≈ 10 mL/kg."},
           {type:"text", text:"Si hay vómitos: administrar de forma fraccionada (5 mL cada 2–5 min)."},
           {type:"dose", label:"Ondansetrón oral (si los vómitos persisten)", doseKg:0.15, unit:"mg", max:8, note:"Máximo habitual 6–8 mg."},
         ],
@@ -1331,7 +1331,7 @@ const PATHOLOGIES = [
         label: "Tratamiento — Deshidratación moderada",
         accent: "amber",
         items: [
-          {type:"text", text:"<b>Rehidratación oral (RHO)</b> — primera opción si no hay contraindicación. Fase de rehidratación (2–4 horas): <b>50–90 mL/kg</b>. SRO (ESPGHAN): Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L."},
+          {type:"doseRange", label:"Rehidratación oral (RHO) — primera opción si no hay contraindicación: volumen de SRO en 2–4 horas", minDoseKg:50, maxDoseKg:90, unit:"ml", max:null, note:"SRO (ESPGHAN): Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L."},
           {type:"text", text:"Si hay vómitos: administrar de forma fraccionada (5 mL cada 2–5 min)."},
           {type:"dose", label:"Ondansetrón oral (si los vómitos persisten)", doseKg:0.15, unit:"mg", max:8, note:"Máximo habitual 6–8 mg."},
           {type:"dose", label:"Rehidratación IV rápida (RIR) — si fracasa o está contraindicada la RHO", doseKg:20, unit:"ml", max:700, note:"20 mL/kg/hora (máx. 700 mL/h) de suero salino 0,9%, Ringer lactato o solución balanceada, durante 1–4 horas. Añadir glucosa al 2,5% si hay cetosis con glucemia normal."},
