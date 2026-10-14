@@ -1,7 +1,7 @@
 # Instalar "Cards Medicación Urgente · HUSA" como app en Chrome
 
 ## Archivos de este paquete
-- `dosis-pediatricas.html` — la app
+- `index.html` — la app
 - `manifest.webmanifest` — nombre, icono y color de la app instalada
 - `sw.js` — service worker (permite que funcione sin conexión una vez instalada)
 - `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`, `favicon-32.png`, `favicon-48.png`
@@ -21,7 +21,7 @@ aunque el manifest y los iconos estén bien configurados. Hay que "servir" la ca
    ```
    python3 -m http.server 8080
    ```
-3. Abre Chrome en `http://localhost:8080/dosis-pediatricas.html`.
+3. Abre Chrome en `http://localhost:8080/index.html`.
 4. Aparecerá el icono de instalar en la barra de direcciones (⊕ o el icono de
    "Instalar app"), o en el menú ⋮ → "Instalar Cards Medicación Urgente…".
 
@@ -37,6 +37,6 @@ escritorio) verá la opción de instalarla como app, con icono propio y funciona
 sin conexión tras el primer uso.
 
 ## Actualizar la app más adelante
-Si cambias `dosis-pediatricas.html`, sube la nueva versión con el mismo nombre.
+Si cambias `index.html`, sube la nueva versión con el mismo nombre.
 El service worker detectará el cambio y actualizará la app instalada la siguiente
 vez que se abra (puede tardar una recarga en aplicarse del todo).

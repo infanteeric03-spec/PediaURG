@@ -7,9 +7,10 @@
 // Sube el número de versión cada vez que publiques cambios importantes: eso
 // fuerza a los navegadores (Chrome, Samsung Internet, etc.) a descartar la
 // caché antigua en vez de seguir sirviéndola indefinidamente.
-const CACHE_NAME = "husa-dosis-pediatricas-v2";
+const CACHE_NAME = "husa-dosis-pediatricas-v3";
 const APP_SHELL = [
-  "./dosis-pediatricas.html",
+  "./",
+  "./index.html",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
