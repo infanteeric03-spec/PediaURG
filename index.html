@@ -528,6 +528,24 @@
   }
   .path-riskfactors summary{ cursor:pointer; font-weight:600; font-size:12.5px; color:var(--muted); }
   .path-riskfactors ul{ margin:10px 0 0; padding-left:18px; font-size:12.5px; line-height:1.7; color:var(--text); }
+
+  .score-cell{ cursor:pointer; transition:background .12s, box-shadow .12s; }
+  .score-cell:hover{ background:var(--panel-2); }
+  .score-cell.selected{ background:var(--violet-dim); box-shadow:inset 0 0 0 2px var(--violet); font-weight:700; }
+  .score-total-bar{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px;
+    margin-top:10px; padding:10px 12px; border-radius:10px;
+    background:var(--panel-2); border:1px solid var(--line);
+    font-size:12.5px; color:var(--text);
+  }
+  .score-total-value{ font-weight:800; font-size:15px; color:var(--violet); }
+  .score-total-hint{ color:var(--muted); font-size:11.5px; }
+  .score-reset-btn{
+    margin-left:auto; border:1px solid var(--line); background:var(--panel);
+    color:var(--muted); border-radius:8px; padding:5px 10px; font-size:11.5px;
+    cursor:pointer;
+  }
+  .score-reset-btn:hover{ border-color:var(--violet); color:var(--violet); }
   .result-check{ display:flex; align-items:center; gap:9px; cursor:pointer; margin-bottom:2px; }
   .result-check input[type=checkbox]{ width:18px; height:18px; flex-shrink:0; accent-color:var(--green); cursor:pointer; }
   .result-check h3{ margin:0; }
@@ -1081,29 +1099,56 @@ const PATHOLOGIES = [
   {
     id: "asma",
     name: "Crisis asmática",
-    source: "AEPap — Guía de Algoritmos en Pediatría de Atención Primaria, 2017 (Cortés Rico, Rodríguez Fernández-Oliva). algoritmos.aepap.org",
-    definition: "Episodio de dificultad respiratoria progresiva o repentina, con disnea, tos, sensación de opresión torácica, o una combinación de estos síntomas.",
+    source: "SEUP — Protocolos Diagnósticos y Terapéuticos en Urgencias de Pediatría, 4ª ed., 2024 (Paniagua Calzón, Benito Fernández). Sociedad Española de Urgencias de Pediatría.",
+    definition: "Episodio de dificultad respiratoria progresiva o repentina, con disnea, tos, sensación de opresión torácica, o una combinación de estos síntomas. El manejo se basa en valorar rápidamente la gravedad, revertir el broncoespasmo con broncodilatadores inhalados, administrar corticoide sistémico precozmente en las crisis indicadas y aportar oxígeno cuando exista hipoxemia o trabajo respiratorio intenso.",
     alarmSigns: [
-      "Saturación de oxígeno por pulsioximetría &lt; 92%",
-      "Agitación, somnolencia o confusión debidas a hipoxemia cerebral",
-      "Tórax silente (ventilación insuficiente incluso para producir sibilancias)",
+      "Irritabilidad o somnolencia, dificultad para hablar (posible fallo respiratorio)",
+      "Postura en sedestación, taquipnea, retracciones intensas",
+      "Respiración lenta y dificultosa con hipoventilación (broncoespasmo grave y agotamiento)",
+      "SatO₂ inicial &lt; 92% (mayor riesgo de hospitalización y de mayor estancia en Urgencias)",
+    ],
+    scoreTable: {
+      title: "Pulmonary Score (PS)",
+      interactive: true,
+      maxScore: 9,
+      columns: [
+        {key:"score", label:"Puntuación", mono:true},
+        {key:"frMenor6", label:"FR &lt; 6 años", group:"fr"},
+        {key:"frMayor6", label:"FR &gt; 6 años", group:"fr"},
+        {key:"sibil", label:"Sibilancias", group:"sibil"},
+        {key:"ecm", label:"Uso ECM", group:"ecm"},
+      ],
+      groupLabels: {fr:"frecuencia respiratoria", sibil:"sibilancias", ecm:"uso del ECM"},
+      rows: [
+        {score:"0", frMenor6:"&lt; 30", frMayor6:"&lt; 20", sibil:"No", ecm:"No"},
+        {score:"1", frMenor6:"31–45", frMayor6:"21–35", sibil:"Final de la espiración", ecm:"Leve"},
+        {score:"2", frMenor6:"46–60", frMayor6:"36–50", sibil:"Toda la espiración", ecm:"Moderado"},
+        {score:"3", frMenor6:"&gt; 60", frMayor6:"&gt; 50", sibil:"Inspiración y espiración, sin fonendoscopio*", ecm:"Máximo"},
+      ],
+      footnote: "ECM: esternocleidomastoideo. Puntuación máxima: 9 (suma de los 3 apartados). *Si no hay sibilancias y la actividad del ECM está aumentada, puntuar 3.",
+      severityFromTotal: (total) => total < 3 ? "Leve" : (total <= 6 ? "Moderada" : "Grave"),
+    },
+    severityColumns: [
+      {key:"ps", label:"Pulmonary Score", mono:true},
+      {key:"spo2", label:"SatO₂"},
     ],
     severityTable: [
-      {level:"Leve", disnea:"Al andar", fr:"Normal o aumentada", fc:"&lt; 100 lpm", musc:"No", sibil:"Moderadas", fem:"&gt; 80%", spo2:"&gt; 95%", ps:"0–3", psSpo2:"&gt; 94%"},
-      {level:"Moderada", disnea:"Hablando (lactante: llanto corto, dificultad para alimentarse)", fr:"20–25 rpm (&gt;5a) · 20–50 rpm (2–5a)", fc:"100–120 lpm (&gt;5a) · 100–130 lpm (2–5a)", musc:"Habitual", sibil:"Importantes", fem:"60–80%", spo2:"92–95%", ps:"4–6", psSpo2:"91–94%"},
-      {level:"Grave", disnea:"En reposo (lactante: no come)", fr:"&gt; 25 rpm (&gt;5a) · &gt; 50 rpm (2–5a)", fc:"&gt; 120 lpm o bradicardia (&gt;5a) · &gt; 130 lpm (2–5a)", musc:"Habitual", sibil:"Importantes o ausentes", fem:"&lt; 60%", spo2:"&lt; 92%", ps:"7–9", psSpo2:"&lt; 91%"},
+      {level:"Leve", ps:"&lt; 3", spo2:"&gt; 94%"},
+      {level:"Moderada", ps:"4–6", spo2:"91–94%"},
+      {level:"Grave", ps:"&gt; 6", spo2:"&lt; 91%"},
     ],
-    riskFactorsIntro: "Son factores de riesgo de padecer una crisis de asma potencialmente fatal (asma de riesgo vital):",
+    scoreNote: "Si el Pulmonary Score y la SatO₂ discrepan a la hora de valorar la gravedad, se usa el criterio que otorgue mayor gravedad.",
+    riskFactorsIntro: "Factores de riesgo de crisis grave:",
     riskFactors: [
-      "Historia previa de crisis grave, ventilación mecánica o ingreso en UCI por asma",
-      "Dos o más ingresos por asma en el último año",
-      "Tres o más visitas a urgencias por asma en el último año",
-      "Hospitalización o visita a urgencias por asma en el último mes",
-      "Uso de más de un envase de β2 agonista de acción corta al mes",
-      "Dificultad para percibir los síntomas o la gravedad de la crisis; no tener plan de acción por escrito; mala adherencia",
-      "Empleo habitual o reciente de corticoides sistémicos; 3 o más fármacos de base para el asma",
-      "Adolescencia; bajo nivel socioeconómico; consumo de drogas; problemas psicosociales mayores; familia disfuncional",
-      "Comorbilidad cardiovascular, pulmonar crónica o psiquiátrica crónica",
+      "Crisis previas graves o de rápido empeoramiento; ingreso en UCIP",
+      "Dos o más hospitalizaciones o tres o más visitas a Urgencias en el año previo",
+      "Múltiples visitas a Urgencias en el mes previo",
+      "Uso reciente o concomitante de corticoides sistémicos",
+      "No recibir corticoides inhalados de mantenimiento",
+      "Seguimiento inadecuado o incumplimiento terapéutico",
+      "Sobreutilización de salbutamol durante el último mes",
+      "Alergia alimentaria",
+      "Dificultad de acceso a Urgencias o problemas psicosociales",
     ],
     treatments: [
       {
@@ -1111,152 +1156,211 @@ const PATHOLOGIES = [
         label: "Tratamiento — Crisis leve",
         accent: "green",
         items: [
-          {type:"text", text:"<b>Salbutamol MDI</b> (0,1 mg/puls): 2–4 pulsaciones con cámara espaciadora (con o sin mascarilla según edad). Si precisa, repetir hasta 3 veces en 1 hora (una tanda cada 20 min)."},
-          {type:"text", text:"Solo si el paciente ha sido tratado recientemente con un corticoide oral: <b>prednisona/prednisolona oral 0,5–1 mg/kg</b> (u otro corticoide oral a dosis equipotente)."},
+          {type:"puffs", label:"Salbutamol MDI + cámara (preferente sobre nebulizado)", divisor:3, min:5, max:10, puffDose:"100 µg", note:"Inicialmente 3 tandas en la 1ª hora, cada 20 min; después según evolución. Dosis estandarizadas del documento: 4 puff (5–10 kg), 6 puff (10–20 kg), 8 puff (&gt; 20 kg)."},
+          {type:"text", text:"Corticoide sistémico solo si no hay respuesta inmediata o completa al salbutamol, o existen factores de riesgo de crisis grave; preferentemente por vía oral."},
         ],
-        followUp: "Si no mejora, o la mejoría dura menos de 3 horas, tratar como crisis moderada."
+        followUp: "Revalorar tras el tratamiento inicial. Si no mejora o la respuesta es incompleta, tratar como crisis moderada."
       },
       {
         level: "moderada",
         label: "Tratamiento — Crisis moderada",
         accent: "amber",
         items: [
-          {type:"text", text:"<b>Oxígeno continuo</b> (mascarilla o gafas nasales) para mantener SpO₂ 94–98%."},
-          {type:"text", text:"<b>Salbutamol MDI</b> (0,1 mg/puls): 6–8 pulsaciones con cámara espaciadora, 1 tanda cada 20 min hasta 3 en 1 hora."},
-          {type:"dose", label:"Alternativa: salbutamol nebulizado", doseKg:0.15, unit:"mg", max:5, note:"con fuente de O₂ y mascarilla facial. 1 nebulización cada 20 min, hasta 3 en 1 hora."},
-          {type:"dose", label:"Prednisona/prednisolona oral", doseKg:1, unit:"mg", max:null, note:"lo antes posible, dentro de la 1ª hora (u otro corticoide equipotente). Vía parenteral —preferible IV a IM— solo si no tolera la vía oral."},
+          {type:"text", text:"<b>Oxígeno</b>, humidificado, con el dispositivo más cómodo y la menor concentración que mantenga SatO₂ ≥ 92%."},
+          {type:"puffs", label:"Salbutamol MDI + cámara (preferente)", divisor:3, min:5, max:10, puffDose:"100 µg", note:"3 tandas en la 1ª hora, cada 20 min."},
+          {type:"dose", label:"Alternativa: salbutamol nebulizado", doseKg:0.15, unit:"mg", max:5, note:"Mínimo 2,5 mg (considerar mínimo 1,5 mg en lactantes pequeños o &lt; 10 kg). Dosis estándar: 2,5 mg (&lt; 20 kg) / 5 mg (&gt; 20 kg). Con fuente de O₂ y mascarilla facial."},
+          {type:"text", text:"<b>Bromuro de ipratropio</b>, 2–3 dosis sucesivas junto a las tandas iniciales de salbutamol: MDI 4 puff (&lt; 20 kg) / 8 puff (&gt; 20 kg), o nebulizado 250 µg (&lt; 20 kg) / 500 µg (&gt; 20 kg)."},
+          {type:"dose", label:"Corticoide sistémico — dexametasona oral", doseKg:0.6, unit:"mg", max:12, note:"Administrar dentro de la 1ª hora; repetir la misma dosis a las 24 h. Alternativa: prednisona/prednisolona oral 1–2 mg/kg inicial, después 1–2 mg/kg/día 3–5 días (máx. 60 mg/día), sin descenso progresivo."},
         ],
-        followUp: "Si no mejora, o la mejoría es menor de 3 horas, tratar como crisis grave y valorar derivación al hospital más próximo en ambulancia medicalizada."
+        followUp: "Si no mejora tras 1–2 horas de tratamiento inicial, valorar sulfato de magnesio IV y tratar como crisis grave."
       },
       {
         level: "grave",
         label: "Tratamiento — Crisis grave",
         accent: "orange",
         items: [
-          {type:"text", text:"<b>Oxígeno continuo</b> (mascarilla o gafas nasales) al flujo necesario para SpO₂ 94–98%."},
-          {type:"dose", label:"Salbutamol nebulizado", doseKg:0.15, unit:"mg", max:5, note:"con fuente de O₂ y mascarilla facial. 1 nebulización cada 20 min, hasta 3 en 1 hora."},
-          {type:"text", text:"<b>Bromuro de ipratropio</b> nebulizado junto al salbutamol: 250 mcg/dosis (&lt; 5 años) o 500 mcg/dosis (&gt; 5 años). 1 nebulización cada 20 min, hasta 3 en 1 hora."},
-          {type:"text", text:"Alternativa sin nebulización: salbutamol MDI 8–10 puls + bromuro de ipratropio MDI 2–4 puls con cámara espaciadora, cada 20 min hasta 3 tandas en 1 hora."},
-          {type:"dose", label:"Prednisona/prednisolona oral", doseKg:2, unit:"mg", max:40, note:"dentro de la 1ª hora (u otro corticoide equipotente). Máx. 40 mg/día. Vía parenteral solo si no tolera la vía oral o hay nivel de consciencia disminuido."},
+          {type:"text", text:"<b>Oxígeno</b> al flujo necesario para SatO₂ ≥ 92%."},
+          {type:"dose", label:"Salbutamol nebulizado", doseKg:0.15, unit:"mg", max:5, note:"Mínimo 2,5 mg (mínimo 1,5 mg en lactantes pequeños o &lt; 10 kg), máximo 5 mg. Nebulización preferente en crisis graves, con fuente de O₂ y mascarilla facial."},
+          {type:"text", text:"<b>Bromuro de ipratropio</b>, 2–3 dosis sucesivas junto a las tandas iniciales de salbutamol: MDI 4 puff (&lt; 20 kg) / 8 puff (&gt; 20 kg), o nebulizado 250 µg (&lt; 20 kg) / 500 µg (&gt; 20 kg)."},
+          {type:"dose", label:"Corticoide sistémico — dexametasona oral", doseKg:0.6, unit:"mg", max:12, note:"Dentro de la 1ª hora; repetir la misma dosis a las 24 h. Vía IV (metilprednisolona 1–2 mg/kg, máx. 125 mg/día) si intolerancia oral o mayor gravedad."},
+          {type:"dose", label:"Sulfato de magnesio IV", doseKg:40, unit:"mg", max:2000, note:"En 20 minutos, si no hay mejoría tras 1–2 horas de tratamiento inicial. Monitorizar tensión arterial. Contraindicado en insuficiencia renal."},
         ],
-        followUp: "Si empeora o no mejora, tratar como crisis de riesgo vital. Como norma general, toda crisis grave se deriva urgentemente al hospital más próximo en ambulancia medicalizada, con personal sanitario, administrando oxígeno, broncodilatadores nebulizados y corticoides sistémicos durante el traslado."
+        followUp: "Si persiste el fallo respiratorio, valorar oxigenoterapia de alto flujo (OAF); si fracasa, no debe retrasarse la ventilación no invasiva (VNI)."
       },
       {
         level: "vital",
-        label: "Tratamiento — Riesgo vital",
+        label: "Tratamiento — Fallo respiratorio",
         accent: "red",
         items: [
-          {type:"text", text:"Evaluar rápidamente y administrar <b>O₂ continuo</b> al flujo necesario para SpO₂ &gt; 94%."},
-          {type:"dose", label:"1ª nebulización: salbutamol", doseKg:0.15, unit:"mg", max:null, note:"+ 250–500 mcg de bromuro de ipratropio, con O₂ a 6–8 l/min."},
-          {type:"text", text:"Repetir nebulizaciones de salbutamol + ipratropio sin solución de continuidad, u optar por <b>nebulización continua de salbutamol</b> (10 ml de salbutamol + 140 ml SSF en bomba de perfusión, a ritmo de 12–15 ml/h sobre el depósito de la mascarilla)."},
-          {type:"text", text:"Canalizar <b>vía IV</b> y monitorizar al paciente."},
-          {type:"dose", label:"Corticoide por vía parenteral", doseKg:2, unit:"mg", max:null},
-          {type:"text", text:"Vigilar la aparición de signos de parada cardiorrespiratoria inminente."},
-          {type:"dose", label:"Si precisa: adrenalina IM 1:1.000 (1 mg/1 ml)", doseKg:0.01, unit:"mg", max:0.4, note:"máximo 3 dosis, una cada 20 min si fuera necesario. Valorar también la necesidad de intubación."},
-          {type:"text", text:"Solicitar una <b>ambulancia del sistema de emergencias</b> (UCI móvil)."},
+          {type:"text", text:"<b>Estabilización y monitorización completa</b>; postura semiincorporada. Valorar secuencia rápida de intubación si procede."},
+          {type:"text", text:"<b>Oxígeno al 100%</b>; valorar oxigenoterapia de alto flujo (OAF)."},
+          {type:"text", text:"Canalizar <b>vía IV</b> y realizar analítica/gasometría."},
+          {type:"text", text:"<b>Salbutamol + bromuro de ipratropio nebulizados</b>, sin solución de continuidad."},
+          {type:"dose", label:"Corticoide IV — metilprednisolona", doseKg:1.5, unit:"mg", max:125, note:"1–2 mg/kg inicial; después 1–2 mg/kg/día (máx. 125 mg/día)."},
+          {type:"dose", label:"Sulfato de magnesio IV", doseKg:40, unit:"mg", max:2000, note:"En 20 minutos; monitorizar tensión arterial. Contraindicado en insuficiencia renal."},
+          {type:"text", text:"Valorar radiografía de tórax."},
+          {type:"text", text:"Si la OAF fracasa y persiste la insuficiencia respiratoria, considerar VNI sin demora: no debe retrasarse su inicio cuando no hay mejoría tras 1–2 h de tratamiento intensivo."},
         ],
       },
     ],
     response: [
-      {level:"Respuesta buena", accent:"green", criteria:["Mejoría mantenida al menos 3 horas","Ausencia o mínimos síntomas o signos","FEM o FEV1 &gt; 70% y SpO₂ &gt; 94%","Pulmonary Score ≤ 3","Sin factores de riesgo de crisis potencialmente fatal"], outcome:"Alta con el tratamiento por escrito, comprobando antes que el niño o la familia realizan bien la técnica inhalatoria. Si no mejora, o la mejoría dura menos de 3 horas, reconsiderar como crisis moderada."},
-      {level:"Respuesta incompleta", accent:"amber", criteria:["Signos y síntomas leves o moderados","FEM o FEV1 entre 50% y 70%","Duración de la respuesta &lt; 2 horas","SpO₂ 92–94%"], outcome:"Valoración individual: continuar el tratamiento y alta a domicilio, o derivar al hospital si es un paciente de alto riesgo."},
-      {level:"Respuesta mala", accent:"red", criteria:["Signos y síntomas graves","FEM o FEV1 &lt; 50%","Duración de la respuesta &lt; 1 hora","SpO₂ &lt; 92%"], outcome:"Tratar como crisis grave."},
+      {level:"Buena (alta)", accent:"green", criteria:["Estabilidad clínica mantenida, sin recaídas","Pulmonary Score ≤ 2","SatO₂ ≥ 92% sin signos de dificultad respiratoria"], outcome:"Alta a domicilio con salbutamol MDI a demanda (inicialmente 5 puff, espaciar según tolerancia y control), completando el corticoide sistémico si se inició en Urgencias (2ª dosis de dexametasona a las 24 h, o ciclo de 3–5 días de prednisona/prednisolona). Revisar la técnica inhalatoria, valorar inicio o ajuste de corticoide inhalado de mantenimiento, explicar signos de alarma y evitación de desencadenantes (especialmente tabaco), y seguimiento por Pediatría en 24–48 h."},
+      {level:"Insuficiente (observación/ingreso)", accent:"amber", criteria:["Persistencia de dificultad respiratoria tras el tratamiento inicial","Necesidad de broncodilatador con frecuencia &lt; 2 horas","Necesidad de oxígeno suplementario","Enfermedad de base grave (a considerar)","Antecedente de crisis grave o rápida progresión","Mala adherencia o dificultad de acceso sanitario"], outcome:"Valorar observación u hospitalización."},
+      {level:"Grave (UCIP)", accent:"red", criteria:["Pulmonary Score de gravedad persistente tras el tratamiento inicial","SatO₂ &lt; 90% con FiO₂ &gt; 0,4, o PaCO₂ &gt; 45 mmHg pese al tratamiento de rescate","Arritmias"], outcome:"Ingreso en UCIP; valorar oxigenoterapia de alto flujo (OAF) y, si fracasa o no está disponible, ventilación no invasiva (VNI) en UCIP."},
     ],
-    referral: "El traslado de una crisis grave o de riesgo vital se hace en ambulancia medicalizada, acompañado por personal sanitario. Durante el traslado: oxígeno continuo para SpO₂ 94–98%, β2 agonista nebulizado, monitorización, vigilancia de signos de parada cardiorrespiratoria inminente, y valorar intubación endotraqueal y adrenalina IM.",
-    severityNote: "Pulmonary Score (0–3 por apartado, máx. 9): frecuencia respiratoria, sibilancias y uso del esternocleidomastoideo. Combinado con la SpO₂, da la valoración global de la gravedad (leve 0–3 / &gt;94%, moderada 4–6 / 91–94%, grave 7–9 / &lt;91%). Ante discordancia entre la puntuación clínica y la saturación, se usa el de mayor gravedad.",
+    referral: "En crisis graves o con fallo respiratorio franco: estabilización y monitorización completa, vía aérea en postura semiincorporada valorando secuencia rápida de intubación si procede, oxígeno al 100% valorando OAF, canalización de vía IV con analítica/gasometría, salbutamol y bromuro de ipratropio nebulizados, corticoide IV y sulfato de magnesio IV, y valoración de radiografía de tórax (sospecha de neumotórax, consolidación, atelectasia u otro diagnóstico diferencial) o capnografía si hay fallo respiratorio o cardiorrespiratorio. Si la OAF fracasa y persiste la insuficiencia respiratoria, no debe retrasarse el inicio de la VNI.",
   },
+
   {
     id: "laringitis",
     name: "Laringitis aguda (crup)",
-    source: "SEUP — Protocolos diagnósticos y terapéuticos en Urgencias de Pediatría, 4ª ed., 2024. «Diagnóstico y tratamiento de la laringitis en Urgencias» (Guirado Rivas, Luaces Cubells; Hospital Sant Joan de Déu).",
-    definition: "Síndrome de obstrucción laríngea por edema subglótico: grado variable de tos perruna o metálica, afonía, estridor inspiratorio y dificultad respiratoria, con o sin fiebre. Diagnóstico fundamentalmente clínico; no requiere pruebas complementarias en la mayoría de casos. Pico en el 2.º año de vida, otoño-invierno; causa principal: virus parainfluenza tipo 1.",
+    source: "SEUP — Protocolos Diagnósticos y Terapéuticos en Urgencias de Pediatría, 4ª ed., 2024 (Guirado Rivas, Luaces Cubells). Sociedad Española de Urgencias de Pediatría.",
+    definition: "Síndrome caracterizado por un grado variable de tos perruna o metálica, afonía, estridor y dificultad respiratoria, asociado o no a fiebre, debido a distintos grados de obstrucción laríngea por edema subglótico. Incluye la laringitis aguda o crup (la más frecuente, de causa viral, sobre todo por parainfluenza tipo 1) y la laringitis espasmódica o recurrente (inicio brusco y curso autolimitado), que comparten el mismo enfoque diagnóstico y terapéutico.",
     alarmSigns: [
-      "Estridor en reposo, tiraje intenso o taquipnea",
-      "Hipoxia (SpO₂ &lt; 93%; su descenso es tardío) o cianosis / palidez extrema",
-      "Disminución del nivel de consciencia o deterioro progresivo",
-      "Babeo, disfagia, voz apagada o posición de olfateo/trípode: sospechar epiglotitis o laringotraqueítis bacteriana",
+      "Estridor en reposo marcado o de instauración rápida",
+      "Tiraje intenso o taquipnea",
+      "Hipoxia o cianosis",
+      "Disminución del nivel de consciencia",
+      "Palidez extrema",
     ],
-    alarmTitle: "Signos de alarma",
-    severityScale: {
-      title: "Escala de Westley",
-      paramHeader: "Parámetro",
-      columns: ["0","1","2","3","4","5"],
-      rows: [
-        {param:"Estridor inspiratorio", vals:["No","Con la agitación","En reposo","","",""]},
-        {param:"Retracciones / tiraje", vals:["No","Leve","Moderado","Severo","",""]},
-        {param:"Ventilación", vals:["Normal","Hipoventilación leve","Hipoventilación moderada-severa","","",""]},
-        {param:"Cianosis", vals:["No","","","","Con la agitación","En reposo"]},
-        {param:"Nivel de conciencia", vals:["Normal","","","","","Disminuido"]},
-      ],
-      ranges: [
-        {label:"Leve", range:"≤ 2", accent:"green"},
-        {label:"Moderada", range:"3–7", accent:"amber"},
-        {label:"Grave", range:"8–11", accent:"orange"},
-        {label:"Fallo respiratorio inminente", range:"≥ 12", accent:"red"},
-      ],
-    },
-    severityNote: "Aplicar un score clínico lo más objetivo posible: de él depende el tratamiento. Antes de tratar, mantener al niño tranquilo y cómodo (con su acompañante) y evitar manipular la vía aérea o realizar actuaciones (canalizar vía IV, cambios de posición) que puedan provocar espasmo o aumentar la dificultad respiratoria. En todos los casos asegurar permeabilidad de la vía aérea, oxigenación y ventilación.",
+    severityColumns: [
+      {key:"estridor", label:"Estridor"},
+      {key:"retracciones", label:"Retracciones/tiraje"},
+      {key:"ventilacion", label:"Ventilación"},
+      {key:"cianosis", label:"Cianosis"},
+      {key:"conciencia", label:"Nivel de conciencia"},
+    ],
+    severityTable: [
+      {level:"Leve", estridor:"No, o solo con la agitación", retracciones:"No o leves", ventilacion:"Normal", cianosis:"No", conciencia:"Normal"},
+      {level:"Moderada", estridor:"En reposo", retracciones:"Leves-moderadas", ventilacion:"Hipoventilación leve", cianosis:"No", conciencia:"Normal"},
+      {level:"Grave", estridor:"En reposo, marcado", retracciones:"Moderadas-severas", ventilacion:"Hipoventilación moderada-severa", cianosis:"Con la agitación o en reposo (signo de gravedad extrema)", conciencia:"Normal o disminuido en los casos más graves"},
+    ],
+    scoreNote: "Escala de Westley (0–12 puntos; suma de estridor, retracciones/tiraje, ventilación, cianosis y nivel de conciencia): leve ≤ 2, moderada 3–7, grave 8–11, fallo respiratorio inminente ≥ 12. Existen otras escalas de valoración clínica, como la de Taussig.",
     treatments: [
       {
         level: "leve",
         label: "Tratamiento — Laringitis leve (Westley ≤ 2)",
         accent: "green",
         items: [
-          {type:"dose", label:"Dexametasona oral (dosis única)", doseMinKg:0.15, doseMaxKg:0.6, unit:"mg", max:10, note:"El rango publicado es 0,15–0,60 mg/kg; 0,15 mg/kg podría ser tan eficaz como 0,60 mg/kg (evidencia limitada). Máx. 10 mg."},
-          {type:"dose", label:"Alternativa si no hay dexametasona: prednisolona oral", doseKg:1, unit:"mg", max:null, note:"1 mg/kg/día durante 3 días."},
-          {type:"text", text:"Solo si hay <b>intolerancia oral</b>: <b>budesonida nebulizada 2 mg</b>, dosis única (independiente del peso y la edad)."},
-          {type:"text", text:"Oxígeno solo si hipoxemia (objetivo SpO₂ ≥ 93%)."},
+          {type:"doseRange", label:"Dexametasona oral", minDoseKg:0.15, maxDoseKg:0.60, unit:"mg", max:10, note:"Dosis única. Inicio de acción a las 2–3 h; vida media de 36 a 72 h."},
+          {type:"text", text:"Como excepción, si hay intolerancia oral: <b>budesonida nebulizada 2 mg</b> en dosis única (independiente del peso y la edad)."},
         ],
-        followUp: "Alta a domicilio explicando los signos de alarma."
+        followUp: "Dar de alta a domicilio explicando los signos de alarma por los que debe volver a consultar."
       },
       {
         level: "moderada",
-        label: "Tratamiento — Laringitis moderada (Westley 3–7)",
+        label: "Tratamiento — Laringitis moderada (Westley 3-7)",
         accent: "amber",
         items: [
-          {type:"dose", label:"Adrenalina nebulizada 1/1.000 (1 mg/ml)", doseKg:0.5, unit:"mg", max:5, note:"con oxigenoterapia. Efecto desde los 10 min, pico a los 30 min, duración ~2 h. Observar al menos 3–4 h tras administrarla."},
-          {type:"dose", label:"Dexametasona oral (dosis única)", doseMinKg:0.15, doseMaxKg:0.6, unit:"mg", max:10, note:"administrar junto con la adrenalina: evita el empeoramiento al finalizar su efecto. Máx. 10 mg."},
-          {type:"text", text:"Oxígeno para mantener SpO₂ ≥ 93%."},
+          {type:"text", text:"<b>Oxigenoterapia</b> si hipoxemia, para alcanzar SatO₂ ≥ 93%."},
+          {type:"dose", label:"Adrenalina acuosa nebulizada (1:1.000)", doseKg:0.5, unit:"mg", max:5, note:"Junto con oxigenoterapia. Efecto rápido (inicio a los 10 min, pico a los 30 min), duración de 2 horas."},
+          {type:"doseRange", label:"Dexametasona oral", minDoseKg:0.15, maxDoseKg:0.60, unit:"mg", max:10, note:"Dosis única, junto con la adrenalina nebulizada."},
         ],
-        followUp: "Reevaluar con la escala de Westley. Si no mejora, tratar como laringitis grave."
+        followUp: "Mantener en observación al menos 3–4 horas tras la adrenalina antes de decidir el alta. Si no mejora, tratar como laringitis grave."
       },
       {
         level: "grave",
         label: "Tratamiento — Laringitis grave (Westley ≥ 8)",
         accent: "red",
         items: [
-          {type:"dose", label:"Adrenalina nebulizada 1/1.000 (1 mg/ml)", doseKg:0.5, unit:"mg", max:5, note:"Si empeora o no mejora: repetir hasta 3 dosis, con intervalo mínimo de 30 min."},
-          {type:"dose", label:"Dexametasona (oral, IV o IM; dosis única)", doseMinKg:0.15, doseMaxKg:0.6, unit:"mg", max:10, note:"corticoide sistémico junto con la adrenalina. Máx. 10 mg."},
-          {type:"text", text:"Oxígeno para mantener SpO₂ ≥ 93%."},
-          {type:"text", text:"Si no se logra un acceso IV rápido: una nebulización única de <b>budesonida 2 mg</b> mezclada con la adrenalina y administradas simultáneamente puede ser beneficiosa."},
-          {type:"text", text:"Si precisa <b>intubación endotraqueal</b>: usar un tubo frío de diámetro menor al que correspondería por edad."},
-          {type:"text", text:"Complemento en respuesta parcial: <b>heliox</b> (helio + O₂ 20–30%), continuo (evidencia limitada)."},
+          {type:"dose", label:"Adrenalina acuosa nebulizada (1:1.000)", doseKg:0.5, unit:"mg", max:5, note:"Repetir hasta 3 dosis, con intervalos mínimos de 30 minutos, si no hay mejoría."},
+          {type:"doseRange", label:"Corticoide sistémico (dexametasona oral, IV o IM)", minDoseKg:0.15, maxDoseKg:0.60, unit:"mg", max:10, note:"Dosis única, administrada junto con la adrenalina nebulizada."},
+          {type:"text", text:"Valorar ingreso en Hospitalización o UCIP según la respuesta al tratamiento y la gravedad. Si se precisa intubación endotraqueal, emplear un tubo frío de diámetro menor al que correspondería por edad."},
         ],
-        followUp: "Si mejora: observación 3–4 h y plantear alta si la evolución es buena. Valorar ingreso en Hospitalización o UCIP según respuesta y gravedad."
+        followUp: "Si mejoría: mantener en observación 3–4 horas y valorar el alta si la evolución ha sido buena. Si empeoramiento o ausencia de mejoría: nueva dosis de adrenalina nebulizada (hasta 3 dosis, con intervalos mínimos de 30 minutos)."
       },
     ],
-    response: [],
-    sections: [
-      {title:"Otras medidas", items:[
-        "No se recomienda la combinación de corticoide sistémico más nebulizado: no aporta beneficio adicional. La dexametasona es superior a la budesonida nebulizada en las puntuaciones clínicas.",
-        "Exposición a aire frío exterior (&lt; 10 °C) durante 30 min, como complemento a la dexametasona oral, podría reducir los síntomas (especialmente en casos moderados).",
-        "Pruebas complementarias no sistemáticas. Radiografía de tórax solo si se sospecha bronconeumonía, laringotraqueítis bacteriana o cuerpo extraño; gasometría solo en casos graves.",
-      ]},
-      {title:"Criterios de ingreso hospitalario", items:[
-        "Afectación del estado general o deterioro progresivo",
-        "Score moderado-grave sin mejoría tras el tratamiento; mala respuesta al tratamiento habitual",
-        "Hipoxia; tiraje intenso o taquipnea; cianosis o palidez extrema; disminución del nivel de consciencia",
-        "Historia previa de obstrucción grave o anomalía estructural de la vía aérea",
-        "Edad &lt; 6 meses; diagnóstico incierto",
-        "Ansiedad familiar, entorno sociofamiliar desfavorable, dificultad de acceso a la atención sanitaria o asistencia repetida a Urgencias",
-      ]},
-      {title:"Criterios de alta", items:[
-        "Sin estridor en reposo",
-        "Saturación de oxígeno normal y ausencia de dificultad respiratoria",
-        "Buena coloración y buen estado general",
-        "Buena tolerancia oral a líquidos",
-        "Familia capaz de volver al hospital si hay empeoramiento",
-      ]},
+    response: [
+      {level:"Buena", accent:"green", criteria:["No estridor en reposo","Saturación de oxígeno normal","Ausencia de dificultad respiratoria","Buena coloración y buen estado general","Buena tolerancia oral a líquidos","Capacidad de volver a consultar si hay empeoramiento"], outcome:"Alta a domicilio explicando los signos de alarma."},
+      {level:"Insuficiente", accent:"red", criteria:["Estridor en reposo persistente","Dificultad respiratoria mantenida o progresiva","Empeoramiento clínico tras el efecto de la adrenalina nebulizada (\"efecto rebote\")"], outcome:"Nueva dosis de adrenalina nebulizada (hasta 3 dosis, con intervalos mínimos de 30 minutos) y valorar ingreso en Hospitalización o UCIP."},
+    ],
+    referral: "La decisión de hospitalizar o dar de alta debe individualizarse según la situación clínica del paciente, la respuesta al tratamiento y la accesibilidad de la familia a un centro sanitario. Tras la adrenalina nebulizada se aconseja mantener al paciente en observación al menos 3–4 horas antes de decidir el alta, dado que su efecto es transitorio.",
+    riskFactorsIntro: "Criterios de ingreso hospitalario:",
+    riskFactors: [
+      "Afectación del estado general o deterioro progresivo",
+      "Score clínico de gravedad moderado-grave sin mejoría tras tratamiento",
+      "Hipoxia",
+      "Tiraje respiratorio intenso o taquipnea",
+      "Cianosis o palidez extrema",
+      "Disminución del nivel de consciencia",
+      "Historia previa de obstrucción grave o anomalía estructural de la vía aérea",
+      "Edad inferior a 6 meses",
+      "Mala respuesta al tratamiento habitual",
+      "Diagnóstico incierto",
+      "Ansiedad familiar",
+      "Entorno sociofamiliar desfavorable",
+      "Dificultad de acceso a la atención sanitaria",
+      "Asistencia repetida a Urgencias",
+    ],
+  },
+  {
+    id: "gea-deshidratacion",
+    name: "Deshidratación por gastroenteritis aguda (GEA)",
+    source: "SEUP — Protocolos Diagnósticos y Terapéuticos en Urgencias de Pediatría, 4ª ed., 2024. Sociedad Española de Urgencias de Pediatría.",
+    definition: "Pérdida de agua y electrolitos secundaria a gastroenteritis aguda. El grado de deshidratación se clasifica según el porcentaje de pérdida de peso corporal (déficit), aplicando el Triángulo de Evaluación Pediátrica (TEP) y la exploración física orientada (signos de Gorelick/NICE). El tratamiento se basa en la rehidratación oral (RHO) como vía de elección, reservando la intravenosa para los casos con fracaso o contraindicación de la vía oral y los casos graves o en shock.",
+    alarmSigns: [
+      "Alteración de consciencia, hipotensión, relleno capilar &gt; 2 s, pulso débil, piel fría o moteada",
+      "Oligoanuria",
+      "Pérdidas masivas (&gt; 10 mL/kg/h) o vómitos incoercibles",
+      "Sospecha de íleo paralítico",
+    ],
+    severityColumns: [
+      {key:"perdida", label:"Pérdida de peso / déficit"},
+      {key:"signos", label:"Signos clave de exploración"},
+    ],
+    severityTable: [
+      {level:"Leve", perdida:"3–5% (30–50 mL/kg)", signos:"Apariencia normal, alerta, sed leve, diuresis conservada o levemente disminuida"},
+      {level:"Moderada", perdida:"5–9% (50–90 mL/kg)", signos:"Irritabilidad o letargia, ojos hundidos, mucosas secas, disminución de diuresis, taquicardia"},
+      {level:"Grave", perdida:"&gt; 9% (&gt; 90 mL/kg)", signos:"Alteración de consciencia, hipotensión, relleno capilar &gt; 2 s, pulso débil, piel fría/moteada, oligoanuria"},
+    ],
+    scoreNote: "Los 3 signos clínicos más sensibles y específicos para predecir una deshidratación ≥ 5% son: tiempo de llenado capilar prolongado, pérdida de turgencia cutánea (signo del pliegue) y patrón respiratorio alterado (taquipnea). No están indicadas pruebas complementarias de rutina en la deshidratación leve.",
+    treatments: [
+      {
+        level: "leve",
+        label: "Tratamiento — Deshidratación leve",
+        accent: "green",
+        items: [
+          {type:"text", text:"<b>Rehidratación oral (RHO)</b> — vía de elección. Fase de rehidratación (2–4 horas): <b>30–50 mL/kg</b>. Solución de rehidratación oral (SRO) según ESPGHAN: Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L."},
+          {type:"text", text:"Si hay vómitos: administrar de forma fraccionada (5 mL cada 2–5 min)."},
+          {type:"dose", label:"Ondansetrón oral (si los vómitos persisten)", doseKg:0.15, unit:"mg", max:8, note:"Máximo habitual 6–8 mg."},
+        ],
+        followUp: "Fase de mantenimiento: reponer pérdidas mantenidas (5–10 mL/kg por deposición diarreica; 2–5 mL/kg por vómito) y mantener la alimentación normal o la lactancia."
+      },
+      {
+        level: "moderada",
+        label: "Tratamiento — Deshidratación moderada",
+        accent: "amber",
+        items: [
+          {type:"text", text:"<b>Rehidratación oral (RHO)</b> — primera opción si no hay contraindicación. Fase de rehidratación (2–4 horas): <b>50–90 mL/kg</b>. SRO (ESPGHAN): Na⁺ 60 mEq/L, K⁺ 20 mEq/L, glucosa 74–111 mmol/L."},
+          {type:"text", text:"Si hay vómitos: administrar de forma fraccionada (5 mL cada 2–5 min)."},
+          {type:"dose", label:"Ondansetrón oral (si los vómitos persisten)", doseKg:0.15, unit:"mg", max:8, note:"Máximo habitual 6–8 mg."},
+          {type:"dose", label:"Rehidratación IV rápida (RIR) — si fracasa o está contraindicada la RHO", doseKg:20, unit:"ml", max:700, note:"20 mL/kg/hora (máx. 700 mL/h) de suero salino 0,9%, Ringer lactato o solución balanceada, durante 1–4 horas. Añadir glucosa al 2,5% si hay cetosis con glucemia normal."},
+        ],
+        followUp: "Reevaluación clínica horaria durante la RIR (peso, FC, PA, diuresis). Si mejora, pasar a rehidratación oral/mantenimiento. La RIR está contraindicada en menores de 3 meses, con Na⁺ &lt; 130 o &gt; 150 mEq/L, o con enfermedad previa grave (cardiopatía, nefropatía); en esos casos, usar rehidratación IV clásica."
+      },
+      {
+        level: "grave",
+        label: "Tratamiento — Deshidratación grave / shock",
+        accent: "red",
+        items: [
+          {type:"dose", label:"Bolo de suero salino 0,9% o solución balanceada", doseKg:10, unit:"ml", note:"10 mL/kg en bolo rápido, junto con la estabilización ABCDE. Reevaluar tras cada carga y repetir si es preciso."},
+          {type:"text", text:"Tras la estabilización, continuar con rehidratación IV (rápida si no está contraindicada, o clásica): suero salino 0,9% + glucosa 5% + K⁺ 20 mEq/L (tras confirmar diuresis y normopotasemia). Volumen en 24 horas = necesidades basales (fórmula de Holliday-Segar) + déficit a reponer."},
+        ],
+        followUp: "Reevaluación clínica horaria (peso, FC, PA, diuresis). Vigilar diuresis y signos de sobrecarga de volumen. Control electrolítico si la sueroterapia IV se mantiene más de 24 horas."
+      },
+    ],
+    response: [
+      {level:"Buena", accent:"green", criteria:["Mejoría clínica tras la RHO o la RIR","Diuresis conservada","Ausencia de signos de sobrecarga de volumen"], outcome:"Pasar a rehidratación oral/mantenimiento, registrar el peso tras la rehidratación y valorar el alta."},
+      {level:"Insuficiente", accent:"red", criteria:["Sin mejoría tras 1–4 horas de RIR","Persistencia de signos de deshidratación moderada-grave","Contraindicación de la RIR"], outcome:"Iniciar rehidratación intravenosa clásica (necesidades basales + déficit, a completar en 24 horas)."},
+    ],
+    referral: "Solicitar pruebas complementarias (gasometría, iones, función renal, glucemia, cetonemia) en: deshidratación grave o shock, alteración del estado mental, indicación de rehidratación intravenosa, o signos clínicos de hipernatremia/hiponatremia o hipopotasemia. No están indicadas de rutina en la deshidratación leve.",
+    riskFactorsIntro: "Contraindicaciones de la rehidratación oral (RHO):",
+    riskFactors: [
+      "Shock o deshidratación grave (&gt; 9%)",
+      "Alteración de consciencia",
+      "Sospecha de íleo paralítico",
+      "Pérdidas masivas (&gt; 10 mL/kg/h)",
+      "Vómitos incoercibles",
     ],
   },
 ];
@@ -1344,6 +1448,11 @@ function fmt(n, decimals){
 // Guarda los mg/kg elegidos manualmente (solo fármacos con rango de dosis),
 // mientras dura la sesión. Clave: índice del fármaco en DRUGS.
 const doseOverrides = {};
+
+// Guarda la selección interactiva de las tablas de puntuación clínica (p.ej.
+// Pulmonary Score), mientras dura la sesión. Clave: id de la patología ->
+// { [grupo de criterio]: puntuación seleccionada (número) }.
+const pathologyScoreState = {};
 
 function computeDrug(drug, w, doseOverride){
   if(drug.fixed !== undefined){
@@ -1767,52 +1876,42 @@ function renderResults(){
     if(item.type === "text"){
       return `<li>${item.text}</li>`;
     }
+    if(item.type === "puffs"){
+      const divisor = item.divisor || 3;
+      const min = item.min !== undefined ? item.min : 5;
+      const max = item.max !== undefined ? item.max : 10;
+      let n = Math.round(w / divisor);
+      let capped = null;
+      if(n < min){ n = min; capped = "min"; }
+      else if(n > max){ n = max; capped = "max"; }
+      const capTxt = capped ? ` <span class="flag" style="display:inline-block;">${capped === "min" ? "DOSIS MÍNIMA" : "DOSIS MÁXIMA"}</span>` : "";
+      return `<li><b>${item.label}:</b> <span class="mono path-dose-val">${n} puff</span>${capTxt}
+        <span class="path-dose-basis">(peso/${divisor}; mín. ${min}, máx. ${max} puff${item.puffDose ? `; cada puff = ${item.puffDose}` : ""})</span>
+        ${item.note ? `<div class="path-dose-note">${item.note}</div>` : ""}</li>`;
+    }
     const suf = unitSuffix(item.unit);
-    const hasMax = item.max !== null && item.max !== undefined;
-    const maxTxt = hasMax ? `, máx. ${fmt(item.max)} ${suf}` : "";
-    if(item.doseMinKg !== undefined){
-      // Dosis en rango: se muestran ambos extremos, cada uno limitado por el máximo
-      let lo = item.doseMinKg * w, hi = item.doseMaxKg * w, capped = false;
-      if(hasMax && lo > item.max){ lo = item.max; }
-      if(hasMax && hi > item.max){ hi = item.max; capped = true; }
+    if(item.type === "doseRange"){
+      let lo = item.minDoseKg * w;
+      let hi = item.maxDoseKg * w;
+      let capped = false;
+      if(item.max !== null && item.max !== undefined){
+        if(lo > item.max){ lo = item.max; capped = true; }
+        if(hi > item.max){ hi = item.max; capped = true; }
+      }
       const capTxt = capped ? ` <span class="flag" style="display:inline-block;">DOSIS MÁXIMA ALCANZADA</span>` : "";
-      const valTxt = (fmt(lo) === fmt(hi)) ? `${fmt(hi)} ${suf}` : `${fmt(lo)} – ${fmt(hi)} ${suf}`;
-      return `<li><b>${item.label}:</b> <span class="mono path-dose-val">${valTxt}</span>
-        <span class="path-dose-basis">(${fmt(item.doseMinKg, 2)}–${fmt(item.doseMaxKg, 2)} ${suf}/kg${maxTxt})</span>${capTxt}
+      const loDec = item.minDoseKg < 0.1 ? 3 : 2;
+      const hiDec = item.maxDoseKg < 0.1 ? 3 : 2;
+      return `<li><b>${item.label}:</b> <span class="mono path-dose-val">${fmt(lo)}–${fmt(hi)} ${suf}</span>
+        <span class="path-dose-basis">(${fmt(item.minDoseKg, loDec)}–${fmt(item.maxDoseKg, hiDec)} ${suf}/kg${item.max ? `, máx. ${fmt(item.max)} ${suf}` : ""})</span>${capTxt}
         ${item.note ? `<div class="path-dose-note">${item.note}</div>` : ""}</li>`;
     }
     let val = item.doseKg * w;
     let capped = false;
-    if(hasMax && val > item.max){ val = item.max; capped = true; }
+    if(item.max !== null && item.max !== undefined && val > item.max){ val = item.max; capped = true; }
     const capTxt = capped ? ` <span class="flag" style="display:inline-block;">DOSIS MÁXIMA ALCANZADA</span>` : "";
     return `<li><b>${item.label}:</b> <span class="mono path-dose-val">${fmt(val)} ${suf}</span>
-      <span class="path-dose-basis">(${fmt(item.doseKg, item.doseKg < 0.1 ? 3 : 2)} ${suf}/kg${maxTxt})</span>${capTxt}
+      <span class="path-dose-basis">(${fmt(item.doseKg, item.doseKg < 0.1 ? 3 : 2)} ${suf}/kg${item.max ? `, máx. ${fmt(item.max)} ${suf}` : ""})</span>${capTxt}
       ${item.note ? `<div class="path-dose-note">${item.note}</div>` : ""}</li>`;
-  }
-
-  // Tabla de gravedad: tabla fija (asma) o escala por puntos (Westley)
-  function pathologySeverityHtml(p){
-    if(p.severityTable){
-      const rows = p.severityTable.map(r => `
-        <tr>
-          <td class="path-level path-level-${r.level.toLowerCase()}">${r.level}</td>
-          <td>${r.disnea}</td><td>${r.fr}</td><td>${r.fc}</td><td>${r.musc}</td>
-          <td>${r.sibil}</td><td>${r.fem}</td><td>${r.spo2}</td><td class="mono">${r.ps}</td>
-        </tr>`).join("");
-      return `<div class="path-subtitle">Valoración de la gravedad</div>
-        <div class="path-table-wrap"><table class="path-table">
-          <thead><tr><th>Gravedad</th><th>Disnea</th><th>Frec. resp.</th><th>Frec. card.</th>
-          <th>Musc. accesoria</th><th>Sibilancias</th><th>FEM</th><th>SatO₂</th><th>Pulmonary Score</th></tr></thead>
-          <tbody>${rows}</tbody></table></div>`;
-    }
-    const sc = p.severityScale;
-    const rows = sc.rows.map(r => `<tr><td class="path-level">${r.param}</td>${r.vals.map(v => `<td>${v || "—"}</td>`).join("")}</tr>`).join("");
-    const ranges = sc.ranges.map(r => `<div class="path-response path-accent-${r.accent}"><div class="path-response-title">${r.label}</div><div class="mono" style="font-weight:700;">${r.range} puntos</div></div>`).join("");
-    return `<div class="path-subtitle">Valoración de la gravedad — ${sc.title}</div>
-      <div class="path-table-wrap"><table class="path-table">
-        <thead><tr><th>${sc.paramHeader}</th>${sc.columns.map(c => `<th>${c}</th>`).join("")}</tr></thead>
-        <tbody>${rows}</tbody></table></div>
-      <div class="path-treatments-grid" style="margin-top:10px;">${ranges}</div>`;
   }
 
   /* ---- Patologías ---- */
@@ -1827,6 +1926,12 @@ function renderResults(){
 
       const checkHead = `<label class="result-check"><input type="checkbox" checked data-cat="patologia" data-id="${id}"><h3>${p.name}</h3></label>`;
 
+      const severityRows = p.severityTable.map(r => `
+        <tr>
+          <td class="path-level path-level-${r.level.toLowerCase()}">${r.level}</td>
+          ${p.severityColumns.map(c => `<td${c.mono ? ' class="mono"' : ""}>${r[c.key]}</td>`).join("")}
+        </tr>`).join("");
+
       const treatmentBlocks = p.treatments.map(t => `
         <div class="path-treatment path-accent-${t.accent}">
           <div class="path-treatment-title">${t.label}</div>
@@ -1838,21 +1943,73 @@ function renderResults(){
 
       const responseBlocks = p.response.map(r => `
         <div class="path-response path-accent-${r.accent}">
-          <div class="path-response-title">Respuesta ${r.level}</div>
+          <div class="path-response-title">Respuesta ${r.level.toLowerCase()}</div>
           <ul>${r.criteria.map(c => `<li>${c}</li>`).join("")}</ul>
           <div class="path-followup">${r.outcome}</div>
         </div>`).join("");
+
+      const scoreTableHtml = p.scoreTable ? (() => {
+        const st = p.scoreTable;
+        const state = pathologyScoreState[p.id] || (pathologyScoreState[p.id] = {});
+        const groups = [...new Set(st.columns.filter(c => c.group).map(c => c.group))];
+
+        const rowsHtml = st.rows.map(r => {
+          const rowScore = parseInt(r.score, 10);
+          const cellsHtml = st.columns.map(c => {
+            if(!c.group){
+              return `<td${c.mono ? ' class="mono"' : ""}>${r[c.key]}</td>`;
+            }
+            const isSelected = state[c.group] === rowScore;
+            return `<td class="score-cell${isSelected ? " selected" : ""}"
+                        data-path-id="${p.id}" data-group="${c.group}" data-score="${rowScore}">${r[c.key]}</td>`;
+          }).join("");
+          return `<tr>${cellsHtml}</tr>`;
+        }).join("");
+
+        const selectedCount = groups.filter(g => state[g] !== undefined && state[g] !== null).length;
+        const total = groups.reduce((sum, g) => sum + (state[g] || 0), 0);
+        const allSelected = groups.length > 0 && selectedCount === groups.length;
+        const severityText = (allSelected && st.severityFromTotal) ? ` → <b>${st.severityFromTotal(total)}</b>` : "";
+        const hint = allSelected
+          ? "Toca una celda para cambiar la selección."
+          : `Selecciona ${st.groupLabels ? Object.values(st.groupLabels).join(", ") : "cada criterio"} tocando la celda que corresponda (${selectedCount}/${groups.length}).`;
+
+        return `
+        <div class="path-subtitle">${st.title}</div>
+        <div class="path-table-wrap">
+          <table class="path-table">
+            <thead><tr>${st.columns.map(c => `<th>${c.label}</th>`).join("")}</tr></thead>
+            <tbody id="scoreTableBody-${p.id}">${rowsHtml}</tbody>
+          </table>
+        </div>
+        ${st.footnote ? `<div class="path-note">${st.footnote}</div>` : ""}
+        <div class="score-total-bar" id="scoreTotalBar-${p.id}">
+          <span>Puntuación: <span class="score-total-value mono" id="scoreTotalValue-${p.id}">${total}</span> / ${st.maxScore || 9}${severityText}</span>
+          <span class="score-total-hint" id="scoreTotalHint-${p.id}">${hint}</span>
+          <button type="button" class="score-reset-btn" data-path-id="${p.id}" data-action="score-reset">↺ Reiniciar</button>
+        </div>`;
+      })() : "";
 
       block.innerHTML = `
         ${checkHead}
         <div class="path-source">Fuente: ${p.source}</div>
         <p class="path-definition">${p.definition}</p>
 
-        ${pathologySeverityHtml(p)}
-        <div class="path-note">${p.severityNote}</div>
+        ${scoreTableHtml}
+
+        <div class="path-subtitle" style="margin-top:14px;">Valoración de la gravedad</div>
+        <div class="path-table-wrap">
+          <table class="path-table">
+            <thead><tr>
+              <th>Gravedad</th>${p.severityColumns.map(c => `<th>${c.label}</th>`).join("")}
+            </tr></thead>
+            <tbody>${severityRows}</tbody>
+          </table>
+        </div>
+        ${p.scoreNote ? `<div class="path-note">${p.scoreNote}</div>` : ""}
 
         <div class="in-callout" style="margin-top:14px;">
-          <b>${p.alarmTitle || "Signos y síntomas de alarma"}</b>${p.alarmTitle ? "" : " — indican necesidad de tratamiento urgente y traslado inmediato al hospital"}:
+          <b>Signos y síntomas de alarma</b> — indican necesidad de tratamiento urgente y traslado inmediato al hospital:
           <ul style="margin:6px 0 0; padding-left:18px;">
             ${p.alarmSigns.map(s => `<li>${s}</li>`).join("")}
           </ul>
@@ -1861,19 +2018,16 @@ function renderResults(){
         <div class="path-subtitle" style="margin-top:18px;">Tratamiento por gravedad</div>
         <div class="path-treatments-grid">${treatmentBlocks}</div>
 
-        ${p.response && p.response.length ? `<div class="path-subtitle" style="margin-top:18px;">Respuesta al tratamiento</div>
-        <div class="path-treatments-grid">${responseBlocks}</div>` : ""}
+        <div class="path-subtitle" style="margin-top:18px;">Respuesta al tratamiento</div>
+        <div class="path-treatments-grid">${responseBlocks}</div>
 
-        ${p.referral ? `<div class="path-subtitle" style="margin-top:18px;">Derivación al hospital</div>
-        <p class="path-definition">${p.referral}</p>` : ""}
+        <div class="path-subtitle" style="margin-top:18px;">Derivación al hospital</div>
+        <p class="path-definition">${p.referral}</p>
 
-        ${(p.sections || []).map(sec => `<div class="path-subtitle" style="margin-top:18px;">${sec.title}</div>
-        <ul class="path-treatment-list">${sec.items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("")}
-
-        ${p.riskFactors ? `<details class="path-riskfactors">
+        <details class="path-riskfactors">
           <summary>${p.riskFactorsIntro}</summary>
           <ul>${p.riskFactors.map(f => `<li>${f}</li>`).join("")}</ul>
-        </details>` : ""}
+        </details>
       `;
       container.appendChild(block);
     });
@@ -2056,6 +2210,7 @@ function renderResults(){
       const id = box.dataset.id;
       if(!box.checked){
         selection[cat].delete(id);
+        if(cat === "patologia") delete pathologyScoreState[id];
         renderResults();
       }
     });
@@ -2076,6 +2231,26 @@ function renderResults(){
       const slider = document.getElementById(`rangeSlider-${idxStr}`);
       if(slider) slider.value = drug.dose;
       updateDoseCardUI(idxStr);
+    });
+  });
+
+  container.querySelectorAll(".score-cell").forEach(cell=>{
+    cell.addEventListener("click", ()=>{
+      const pathId = cell.dataset.pathId;
+      const group = cell.dataset.group;
+      const score = parseInt(cell.dataset.score, 10);
+      const state = pathologyScoreState[pathId] || (pathologyScoreState[pathId] = {});
+      // Tocar la celda ya seleccionada la deselecciona; si no, la selecciona
+      // (y deselecciona cualquier otra celda del mismo criterio).
+      state[group] = (state[group] === score) ? null : score;
+      renderResults();
+    });
+  });
+  container.querySelectorAll(".score-reset-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const pathId = btn.dataset.pathId;
+      delete pathologyScoreState[pathId];
+      renderResults();
     });
   });
 
@@ -2171,6 +2346,7 @@ document.getElementById("clearAllBtn").addEventListener("click", (e)=>{
   selection.perfusion.clear();
   selection.patologia.clear();
   catOpenState.clear();
+  Object.keys(pathologyScoreState).forEach(k => delete pathologyScoreState[k]);
   if(stage === "checklist"){ renderChecklist(document.getElementById("searchInput").value); }
   else if(stage === "results"){ goToPicker(); }
 });
