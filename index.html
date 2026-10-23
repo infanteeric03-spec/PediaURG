@@ -525,6 +525,31 @@
   .path-dose-note{ color:var(--muted); font-size:11.5px; margin-top:2px; }
   .path-response ul{ margin:0 0 8px; padding-left:18px; font-size:12.5px; line-height:1.6; color:var(--text); }
   .path-followup{ color:var(--muted); font-size:12px; line-height:1.5; margin-top:2px; }
+
+  /* ---- TEP ---- */
+  .tep-intro{ font-size:12.5px; color:var(--muted); line-height:1.5; margin:0 0 12px; }
+  .tep-side{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:10px; background:var(--panel-2); }
+  .tep-side-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; justify-content:space-between; }
+  .tep-side-title{ font-weight:700; font-size:14px; color:var(--text); }
+  .tep-toggle{ display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .tep-toggle button{ border:0; background:var(--panel); color:var(--muted); padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .tep-toggle button.on-ok{ background:var(--green-dim); color:var(--green); }
+  .tep-toggle button.on-bad{ background:var(--red-dim); color:var(--red); }
+  .tep-signs{ margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.55; color:var(--muted); }
+  .tep-result{ border-radius:12px; padding:14px 16px; border:1px solid var(--line); border-left:5px solid var(--line); background:var(--panel-2); margin:14px 0; }
+  .tep-result-title{ font-weight:800; font-size:16px; color:var(--text); margin-bottom:4px; }
+  .tep-result p{ margin:4px 0; font-size:12.5px; line-height:1.55; color:var(--text); }
+  .tep-link-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .tep-link{ border:1px solid var(--violet); background:var(--violet-dim); color:var(--violet); border-radius:9px; padding:7px 12px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .tep-age-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 10px; }
+  .tep-chip{ border:1px solid var(--line); background:var(--panel); color:var(--text); border-radius:999px; padding:6px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .tep-chip.active{ border-color:var(--violet); background:var(--violet-dim); color:var(--violet); font-weight:700; }
+  .tep-vitals-table{ min-width:0; }
+  .tep-vitals-table th, .tep-vitals-table td{ padding:8px 6px; }
+  .tep-result.path-accent-green{ border-left-color:var(--green); }
+  .tep-result.path-accent-amber{ border-left-color:var(--amber); }
+  .tep-result.path-accent-red{ border-left-color:var(--red); }
+  .tep-vitals-table tr.tep-row-active td{ background:var(--violet-dim); font-weight:700; }
   .path-riskfactors{
     margin-top:18px; border:1px solid var(--line); border-radius:10px; padding:12px 16px; background:var(--panel-2);
   }
@@ -800,9 +825,25 @@
           <span class="lbl">Patología</span>
           <span class="desc">Protocolos de manejo por patología (AEPap)</span>
         </button>
+        <button class="option-btn" data-cat="tep">
+          <span class="icon">🔺</span>
+          <span class="lbl">Evaluación TEP</span>
+          <span class="desc">Triángulo de evaluación pediátrica y constantes por edad</span>
+        </button>
       </div>
     </div>
     <div id="pickerDisclaimer"></div>
+  </section>
+
+  <!-- TEP -->
+  <section id="tepSection" class="hidden">
+    <div class="checklist-card">
+      <div class="checklist-header">
+        <button class="back-link" id="backFromTep">‹ Cambiar categoría</button>
+        <div class="checklist-title">Evaluación TEP</div>
+      </div>
+      <div id="tepContainer"></div>
+    </div>
   </section>
 
   <!-- CHECKLIST -->
@@ -1613,7 +1654,7 @@ function currentWeight(){
 }
 
 function showSection(id){
-  ["pickerSection","checklistSection","resultsSection"].forEach(s=>{
+  ["pickerSection","checklistSection","resultsSection","tepSection"].forEach(s=>{
     document.getElementById(s).classList.toggle("hidden", s !== id);
   });
   document.getElementById("checklistFooter").classList.toggle("hidden", id !== "checklistSection");
@@ -2294,9 +2335,130 @@ function updateAll(){
   const w = currentWeight();
   document.getElementById("weightSlider").value = w;
   document.getElementById("ageTag").textContent = "≈ " + ageLabel(w);
+  if(typeof renderTep === "function" && !document.getElementById("tepSection").classList.contains("hidden")) renderTep();
   document.getElementById("pickerWeight").textContent = fmt(w, 1);
   updateTapeCursor(w);
   if(stage === "results"){ renderResults(); }
+}
+
+
+/* ============================================================
+   EVALUACIÓN TEP (Triángulo de Evaluación Pediátrica) y constantes por edad
+   Fuente: SEUP, Protocolos diagnósticos y terapéuticos en Urgencias de
+   Pediatría, 4ª ed., 2024 — «Aproximación y estabilización inicial del niño
+   enfermo o accidentado. TEP. ABCDE» (J. L. Fernández Arribas).
+   ============================================================ */
+const TEP_SIDES = [
+  {id:"app", title:"Apariencia", hint:"Refleja la perfusión y oxigenación cerebral; es el lado más importante.",
+   signs:["Hipotonía o disminución de movimientos","Mala respuesta al entorno o a la interacción","Irritabilidad inconsolable","Mirada fija o vacía","Llanto o habla débil, ausente o inadecuado para la edad"]},
+  {id:"resp", title:"Respiración (trabajo respiratorio)", hint:"Valorar sin tocar al niño ni medir constantes.",
+   signs:["Estridor, ronquido o disfonía (obstrucción de vía aérea superior)","Sibilancias (obstrucción de vía aérea inferior)","Quejido espiratorio","Tiraje o retracciones, aleteo nasal, cabeceo (lactantes)","Taquipnea","Posturas anormales: olfateo o trípode"]},
+  {id:"circ", title:"Circulación cutánea", hint:"Distinguir del moteado fisiológico (cutis marmorata) de lactantes y algunos escolares.",
+   signs:["Palidez","Piel moteada","Cianosis (tardía en el shock)"]},
+];
+const TEP_PATTERNS = {
+  "000": {t:"Estable", c:"green", d:"Los tres lados son normales. Continuar con la valoración ABCDE y la anamnesis."},
+  "100": {t:"Disfunción primaria del sistema nervioso central", c:"amber", d:"Solo la apariencia está alterada. Pensar en causa neurológica o metabólica (p. ej. crisis, hipoglucemia, intoxicación, traumatismo craneal, infección del SNC)."},
+  "010": {t:"Dificultad respiratoria", c:"amber", d:"Solo el trabajo respiratorio está alterado: el niño compensa. Identificar si la obstrucción es de vía aérea superior (estridor) o inferior (sibilancias).", links:[["laringitis","Laringitis aguda"],["asma","Crisis asmática"]]},
+  "110": {t:"Insuficiencia respiratoria", c:"red", d:"Trabajo respiratorio y apariencia alterados: la compensación se agota. Oxigenar y asegurar la vía aérea; prepararse para soporte ventilatorio.", links:[["laringitis","Laringitis aguda"],["asma","Crisis asmática"]]},
+  "001": {t:"Shock compensado", c:"amber", d:"Solo la circulación cutánea está alterada: la perfusión cerebral se mantiene todavía. Canalizar vía y reponer volumen precozmente.", links:[["gea-deshidratacion","Deshidratación por GEA"]]},
+  "101": {t:"Shock descompensado", c:"red", d:"Circulación y apariencia alteradas: hipoperfusión cerebral. Reanimación inmediata con volumen y soporte vital.", links:[["gea-deshidratacion","Deshidratación por GEA"]]},
+  "111": {t:"Fallo cardiorrespiratorio", c:"red", d:"Los tres lados están alterados. Iniciar reanimación cardiopulmonar avanzada de inmediato."},
+  "011": {t:"Respiración y circulación alteradas", c:"red", d:"Trabajo respiratorio y circulación alterados con apariencia conservada: situación inestable que puede evolucionar a fallo cardiorrespiratorio. Tratar como inestable, soporte respiratorio y circulatorio.", links:[["asma","Crisis asmática"],["gea-deshidratacion","Deshidratación por GEA"]]},
+};
+const TEP_VITALS = [
+  {id:"rn", label:"Recién nacido – 3 meses", fr:"30–60", fc:"100–160", tas:"> 60"},
+  {id:"lac", label:"3 meses – 2 años", fr:"24–40", fc:"90–150", tas:"> 70"},
+  {id:"pre", label:"Preescolar", fr:"22–34", fc:"80–140", tas:"> 75"},
+  {id:"esc", label:"Escolar", fr:"18–30", fc:"70–120", tas:"> 80"},
+  {id:"ado", label:"Adolescente", fr:"12–16", fc:"60–100", tas:"> 90"},
+];
+// Grupo sugerido a partir del peso (orientativo: la edad real manda)
+function tepGroupFromWeight(w){
+  if(w < 5.5) return "rn";
+  if(w < 12.5) return "lac";
+  if(w < 20) return "pre";
+  if(w < 40) return "esc";
+  return "ado";
+}
+const tepState = { app:null, resp:null, circ:null, group:null, groupManual:false };
+
+function renderTep(){
+  const box = document.getElementById("tepContainer");
+  if(!box) return;
+  const w = currentWeight();
+  if(!tepState.groupManual) tepState.group = tepGroupFromWeight(w);
+
+  const sidesHtml = TEP_SIDES.map(sd => {
+    const v = tepState[sd.id];
+    return `<div class="tep-side">
+      <div class="tep-side-head">
+        <div class="tep-side-title">${sd.title}</div>
+        <div class="tep-toggle" data-side="${sd.id}">
+          <button type="button" data-v="0" class="${v===0?"on-ok":""}">Normal</button>
+          <button type="button" data-v="1" class="${v===1?"on-bad":""}">Anormal</button>
+        </div>
+      </div>
+      <div class="tep-intro" style="margin:6px 0 0;">${sd.hint}</div>
+      <ul class="tep-signs">${sd.signs.map(x=>`<li>${x}</li>`).join("")}</ul>
+    </div>`;
+  }).join("");
+
+  let resultHtml = "";
+  const done = TEP_SIDES.every(sd => tepState[sd.id] !== null);
+  if(done){
+    const key = TEP_SIDES.map(sd => tepState[sd.id]).join("");
+    const p = TEP_PATTERNS[key];
+    const links = (p.links||[]).map(([id,lbl]) => `<button type="button" class="tep-link" data-path="${id}">Ver protocolo: ${lbl}</button>`).join("");
+    resultHtml = `<div class="tep-result path-accent-${p.c}">
+      <div class="tep-result-title">${p.t}</div>
+      <p>${p.d}</p>
+      ${key==="000" ? "" : `<p><b>Niño inestable:</b> priorizar la estabilización (ABCDE) antes de completar la historia.</p>`}
+      ${links ? `<div class="tep-link-row">${links}</div>` : ""}
+    </div>`;
+  } else {
+    resultHtml = `<div class="tep-result"><div class="tep-result-title">Marca los tres lados</div><p>Al valorar apariencia, respiración y circulación aparecerá la impresión diagnóstica inicial.</p></div>`;
+  }
+
+  const chips = TEP_VITALS.map(r => `<button type="button" class="tep-chip ${r.id===tepState.group?"active":""}" data-g="${r.id}">${r.label}</button>`).join("");
+  const rows = TEP_VITALS.map(r => `<tr class="${r.id===tepState.group?"tep-row-active":""}">
+      <td>${r.label}</td><td class="mono">${r.fc}</td><td class="mono">${r.fr}</td><td class="mono">${r.tas}</td></tr>`).join("");
+
+  box.innerHTML = `
+    <p class="tep-intro">Valoración en menos de un minuto, sin tocar al niño ni medir constantes. Un lado anormal indica niño inestable. Es una ayuda a la decisión clínica, no la sustituye.</p>
+    ${sidesHtml}
+    ${resultHtml}
+    <div class="path-subtitle" style="margin-top:18px;">Constantes normales por edad</div>
+    <p class="tep-intro" style="margin-bottom:4px;">Grupo de edad sugerido según el peso de <b>${fmt(w,1)} kg</b> (≈ ${ageLabel(w)}); corrígelo si conoces la edad real.</p>
+    <div class="tep-age-chips">${chips}</div>
+    <div class="path-table-wrap"><table class="path-table tep-vitals-table">
+      <thead><tr><th>Edad</th><th>FC (lpm)</th><th>FR (rpm)</th><th>TAS (mmHg)</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="path-note">Bradicardia: FC &lt; 60 lpm en niños y &lt; 100 lpm en neonatos. Hipotensión según pulsos: TAS &lt; 90 mmHg con pulsos periféricos, &lt; 50 mmHg si solo hay pulsos centrales. Estimación de TAS aceptable: 70 + (2 × edad en años). Fuente: SEUP, Protocolos en Urgencias de Pediatría, 4ª ed., 2024 (Fernández Arribas).</div>`;
+
+  box.querySelectorAll(".tep-toggle button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      tepState[btn.parentElement.dataset.side] = parseInt(btn.dataset.v, 10);
+      renderTep();
+    });
+  });
+  box.querySelectorAll(".tep-chip").forEach(btn=>{
+    btn.addEventListener("click", ()=>{ tepState.group = btn.dataset.g; tepState.groupManual = true; renderTep(); });
+  });
+  box.querySelectorAll(".tep-link").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      selection.patologia.add(btn.dataset.path);
+      activeCategory = "patologia";
+      goToResults();
+    });
+  });
+}
+
+function goToTep(){
+  stage = "tep";
+  activeCategory = null;
+  renderTep();
+  showSection("tepSection");
 }
 
 /* ---- wiring ---- */
@@ -2317,9 +2479,10 @@ document.getElementById("stepDown").addEventListener("click", ()=>{
 });
 
 document.querySelectorAll(".option-btn").forEach(btn=>{
-  btn.addEventListener("click", ()=> goToChecklist(btn.dataset.cat));
+  btn.addEventListener("click", ()=> btn.dataset.cat === "tep" ? goToTep() : goToChecklist(btn.dataset.cat));
 });
 document.getElementById("backToPicker").addEventListener("click", goToPicker);
+document.getElementById("backFromTep").addEventListener("click", goToPicker);
 document.getElementById("acceptBtn").addEventListener("click", goToResults);
 document.getElementById("modifySelection").addEventListener("click", ()=> goToChecklist(activeCategory));
 document.getElementById("goHomeBtn").addEventListener("click", goToPicker);
